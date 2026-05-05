@@ -1,0 +1,53 @@
+{
+  "openapi": "3.0.0",
+  "components": {
+    "examples": {},
+    "headers": {},
+    "parameters": {},
+    "requestBodies": {},
+    "responses": {},
+    "schemas": {},
+    "securitySchemes": {}
+  },
+  "info": {
+    "title": "server",
+    "version": "1.0.0",
+    "license": {
+      "name": "ISC"
+    },
+    "contact": {}
+  },
+  "paths": {
+    "/api/test/api-test": {
+      "get": {
+        "operationId": "TestApi",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["message"],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Test"],
+        "security": [],
+        "parameters": []
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ]
+}

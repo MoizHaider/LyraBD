@@ -1,0 +1,305 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum CampaignStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum HitlType {
+  CAPTCHA
+  LOGIN_REQUIRED
+  TWO_FACTOR_AUTH
+  RATE_LIMITED
+  MANUAL_REVIEW
+}
+
+enum Platform {
+  LINKEDIN
+  TWITTER
+  REDDIT
+  INSTAGRAM
+  FACEBOOK
+  PRODUCTHUNT
+  GITHUB
+  INDIEGOGO
+  ANGELIST
+  CUSTOM // for user-specified URLs
+}
+
+enum RunStatus {
+  PENDING
+  RUNNING
+  PAUSED // HITL interrupt waiting for user
+  COMPLETED
+  FAILED
+}
+
+enum LeadStatus {
+  NEW // just found, not yet reviewed
+  REVIEWED // user has seen this lead
+  CONTACTED // user reached out
+  QUALIFIED // confirmed good fit
+  DISQUALIFIED // confirmed bad fit
+  BOUNCED // email bounced
+}
+
+enum PlatformRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum RunEventType {
+  NAVIGATION // agent navigated to a URL
+  EXTRACTION // agent extracted contacts from a page
+  LEAD_SAVED // a lead was persisted to db
+  LEAD_DUPLICATE // a lead was found but already existed
+  HITL_TRIGGERED // agent paused for human input
+  HITL_RESOLVED // human resolved the interrupt
+  PLATFORM_STARTED // started processing a platform
+  PLATFORM_COMPLETED // finished processing a platform
+  ERROR // non-fatal error, agent continued
+  AGENT_STARTED // run began
+  AGENT_COMPLETED // run finished
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGN
+// The top-level unit of work. Represents a user's
+// intent: "find me leads for X product targeting Y ICP".
+// Multiple runs can be executed against one campaign.
+// ─────────────────────────────────────────────
+model Campaign {
+  id        String         @id @default(cuid())
+  name      String // user-facing label e.g. "SaaS DevTools Q2"
+  niche     String // e.g. "developer tools for startups"
+  icp       String // ideal customer profile, free text
+  goal      String? // optional: "find 50 CTOs at series A startups"
+  status    CampaignStatus @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  // relations
+  platforms CampaignPlatform[]
+  runs      Run[]
+  leads     Lead[]
+}
+
+// ─────────────────────────────────────────────
+// CAMPAIGN PLATFORM
+// Normalizes the many-to-many between campaigns
+// and platforms. Stores per-platform config so the
+// agent knows HOW to search on each platform for
+// this specific campaign (search query, filters etc).
+// Also tracks per-platform progress across runs.
+// ─────────────────────────────────────────────
+model CampaignPlatform {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  platform      Platform // enum: LINKEDIN, REDDIT, TWITTER etc
+  searchQuery   String? // the search string the agent will use
+  searchFilters String? // JSON blob: location, industry, seniority etc
+  priority      Int      @default(1) // order in which the agent processes platforms
+  isEnabled     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  // relations
+  runs  RunPlatformProgress[]
+  leads Lead[]
+
+  @@unique([campaignId, platform]) // one config per platform per campaign
+}
+
+// ─────────────────────────────────────────────
+// RUN
+// A single execution of a campaign. Tracks
+// business-level status and high-level metrics.
+// Separating runs from agent state keeps this table
+// clean and queryable for the UI dashboard.
+// ─────────────────────────────────────────────
+model Run {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  status          RunStatus @default(PENDING)
+  totalLeadsFound Int       @default(0) // denormalized counter, updated as leads come in
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  errorMessage    String? // populated if status = FAILED
+
+  // relations
+  agentState       AgentState? // 1-to-1: execution state for this run
+  platformProgress RunPlatformProgress[]
+  events           RunEvent[]
+  leads            Lead[]
+}
+
+// ─────────────────────────────────────────────
+// AGENT STATE
+// Separated from Run deliberately. This is the
+// execution layer: LangGraph checkpoint for resume,
+// current node, HITL metadata, screenshot paths.
+// Keeping this separate means Run stays clean for
+// business queries and agent internals don't pollute it.
+// ─────────────────────────────────────────────
+model AgentState {
+  id    String @id @default(cuid())
+  runId String @unique
+  run   Run    @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  currentNode        String? // which LangGraph node is currently executing
+  currentPlatform    Platform? // which platform is being processed right now
+  currentPlatformIdx Int       @default(0)
+  lastAction         String? // human-readable: "Scrolling LinkedIn results page 3"
+  checkpoint         String? // JSON blob: full LangGraph state for resume
+  hitlRequired       Boolean   @default(false)
+  hitlType           HitlType? // what kind of interrupt: CAPTCHA, LOGIN, etc
+  hitlScreenshotPath String? // absolute local path to the screenshot file
+  hitlResolvedAt     DateTime?
+  updatedAt          DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// RUN PLATFORM PROGRESS
+// Tracks per-platform progress within a run.
+// Needed because a run processes multiple platforms
+// sequentially, and you want to know which platform
+// finished, which failed, how many leads each found.
+// Also stores the URL cursor so a resumed run can
+// continue from where it left off on a specific platform.
+// ─────────────────────────────────────────────
+model RunPlatformProgress {
+  id                 String           @id @default(cuid())
+  runId              String
+  run                Run              @relation(fields: [runId], references: [id], onDelete: Cascade)
+  campaignPlatformId String
+  campaignPlatform   CampaignPlatform @relation(fields: [campaignPlatformId], references: [id])
+
+  status        PlatformRunStatus @default(PENDING)
+  pagesScraped  Int               @default(0)
+  leadsFound    Int               @default(0)
+  lastCursorUrl String? // last URL scraped, for pagination resume
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  errorMessage  String?
+
+  @@unique([runId, campaignPlatformId])
+}
+
+// ─────────────────────────────────────────────
+// RUN EVENT
+// Append-only audit log of everything the agent does.
+// This is what powers the live status feed in the UI
+// (polled every 3s). Never update rows, only insert.
+// Gives you full replay capability for debugging.
+// ─────────────────────────────────────────────
+model RunEvent {
+  id    String @id @default(cuid())
+  runId String
+  run   Run    @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  type      RunEventType
+  message   String // human-readable: "Found contact: Jane Doe at Acme"
+  metadata  String? // JSON blob for extra context (url, selector, etc)
+  createdAt DateTime     @default(now())
+
+  @@index([runId, createdAt]) // fast fetch of latest events for a run
+}
+
+// ─────────────────────────────────────────────
+// LEAD
+// The clean, validated, deduplicated contact record.
+// Belongs to Campaign (not Run) — this is the key
+// design decision that makes deduplication trivial
+// via unique constraints. The runId just records
+// which run first discovered this lead.
+// ─────────────────────────────────────────────
+model Lead {
+  id                 String            @id @default(cuid())
+  campaignId         String
+  campaign           Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  runId              String // which run first found this lead
+  run                Run               @relation(fields: [runId], references: [id])
+  campaignPlatformId String?
+  campaignPlatform   CampaignPlatform? @relation(fields: [campaignPlatformId], references: [id])
+
+  // contact fields — all optional because not every platform
+  // exposes all fields, and forcing NOT NULL kills valid leads
+  name          String?
+  firstName     String?
+  lastName      String?
+  email         String?
+  phone         String?
+  jobTitle      String?
+  company       String?
+  companySize   String? // e.g. "11-50", "201-500"
+  industry      String?
+  location      String?
+  profileUrl    String? // canonical URL on the source platform
+  websiteUrl    String?
+  linkedinUrl   String?
+  twitterHandle String?
+
+  // agent-assigned quality signals
+  score       Int? // 1-10 ICP fit score from extractor LLM
+  scoreReason String? // why the LLM gave this score
+  isVerified  Boolean    @default(false) // email/contact verified
+  status      LeadStatus @default(NEW)
+
+  // source tracing
+  platform      Platform
+  sourcePageUrl String? // the specific page this was scraped from
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  rawData LeadRawData?
+
+  // deduplication: same email can't appear twice in same campaign
+  // same profile URL can't appear twice in same campaign
+  @@unique([email, campaignId])
+  @@unique([profileUrl, campaignId])
+  // indexes for common query patterns
+  @@index([campaignId, score]) // "show me top scored leads for campaign X"
+  @@index([campaignId, platform]) // "show me all LinkedIn leads for campaign X"
+  @@index([campaignId, status]) // "show me all new leads for campaign X"
+  @@index([campaignId, createdAt]) // "show me newest leads for campaign X"
+}
+
+// ─────────────────────────────────────────────
+// LEAD RAW DATA
+// The original scraped content before cleaning.
+// Separated from Lead so the leads table stays
+// lean and fast. You query leads constantly;
+// you query raw data only when debugging a bad
+// extraction. 1-to-1 with Lead, lazy loaded.
+// ─────────────────────────────────────────────
+model LeadRawData {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  rawHtml        String? // sanitized HTML of the source element
+  rawMarkdown    String? // markdown after Readability/Turndown
+  llmInput       String? // exact text sent to LLM for extraction
+  llmOutput      String? // raw LLM JSON response
+  screenshotPath String? // path to screenshot of the source page
+  scrapedAt      DateTime @default(now())
+}

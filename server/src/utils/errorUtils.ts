@@ -20,7 +20,7 @@ export function errorLogger(err: any, globalLogFields: any) {
     severity: "ERROR",
     timestamp: new Date().toISOString(),
     message: err?.error?.message,               // add message field
-    httpRequest: {                              // use httpRequest for built‐in HTTP log grouping
+    httpRequest: {                              // use httpRequest for built in HTTP log grouping
       requestMethod: err?.method,
       requestUrl: err?.url,
     },

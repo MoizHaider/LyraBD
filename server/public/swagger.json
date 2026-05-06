@@ -6,7 +6,112 @@
     "parameters": {},
     "requestBodies": {},
     "responses": {},
-    "schemas": {},
+    "schemas": {
+      "_36_Enums.Platform": {
+        "type": "string",
+        "enum": [
+          "LINKEDIN",
+          "TWITTER",
+          "REDDIT",
+          "INSTAGRAM",
+          "FACEBOOK",
+          "PRODUCTHUNT",
+          "GITHUB",
+          "INDIEGOGO",
+          "ANGELIST",
+          "CUSTOM"
+        ]
+      },
+      "_36_Enums.CampaignStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "PAUSED", "ARCHIVED"]
+      },
+      "Platform": {
+        "$ref": "#/components/schemas/_36_Enums.Platform"
+      },
+      "CampaignPlatformPayload": {
+        "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "searchQuery": {
+            "type": "string"
+          },
+          "searchFilters": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": ["platform"],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "CreateCampaignReq": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "niche": {
+            "type": "string"
+          },
+          "icp": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "platforms": {
+            "items": {
+              "$ref": "#/components/schemas/CampaignPlatformPayload"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["name", "niche", "icp", "platforms"],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "UpdateCampaignReq": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "niche": {
+            "type": "string"
+          },
+          "icp": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      },
+      "UpdatePlatformReq": {
+        "properties": {
+          "searchQuery": {
+            "type": "string"
+          },
+          "searchFilters": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "number",
+            "format": "double"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          }
+        },
+        "type": "object",
+        "additionalProperties": false
+      }
+    },
     "securitySchemes": {}
   },
   "info": {
@@ -42,6 +147,765 @@
         "tags": ["Test"],
         "security": [],
         "parameters": []
+      }
+    },
+    "/api/campaigns": {
+      "post": {
+        "operationId": "CreateCampaign",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "properties": {
+                            "platforms": {
+                              "items": {
+                                "properties": {
+                                  "isEnabled": {
+                                    "type": "boolean"
+                                  },
+                                  "priority": {
+                                    "type": "number",
+                                    "format": "double"
+                                  },
+                                  "searchFilters": {
+                                    "type": "string"
+                                  },
+                                  "searchQuery": {
+                                    "type": "string"
+                                  },
+                                  "platform": {
+                                    "$ref": "#/components/schemas/_36_Enums.Platform"
+                                  },
+                                  "campaignId": {
+                                    "type": "string"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "isEnabled",
+                                  "priority",
+                                  "searchFilters",
+                                  "searchQuery",
+                                  "platform",
+                                  "campaignId",
+                                  "createdAt",
+                                  "id"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "required": ["platforms"],
+                          "type": "object"
+                        },
+                        {
+                          "properties": {
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "status": {
+                              "$ref": "#/components/schemas/_36_Enums.CampaignStatus"
+                            },
+                            "goal": {
+                              "type": "string"
+                            },
+                            "icp": {
+                              "type": "string"
+                            },
+                            "niche": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "updatedAt",
+                            "createdAt",
+                            "status",
+                            "goal",
+                            "icp",
+                            "niche",
+                            "id",
+                            "name"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "message": {}
+                      },
+                      "required": ["message"],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation Failed"
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCampaignReq"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "ListCampaigns",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "allOf": [
+                      {
+                        "properties": {
+                          "platforms": {
+                            "items": {
+                              "properties": {
+                                "isEnabled": {
+                                  "type": "boolean"
+                                },
+                                "priority": {
+                                  "type": "number",
+                                  "format": "double"
+                                },
+                                "searchFilters": {
+                                  "type": "string"
+                                },
+                                "searchQuery": {
+                                  "type": "string"
+                                },
+                                "platform": {
+                                  "$ref": "#/components/schemas/_36_Enums.Platform"
+                                },
+                                "campaignId": {
+                                  "type": "string"
+                                },
+                                "createdAt": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "isEnabled",
+                                "priority",
+                                "searchFilters",
+                                "searchQuery",
+                                "platform",
+                                "campaignId",
+                                "createdAt",
+                                "id"
+                              ],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          },
+                          "leads": {
+                            "items": {
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": ["id"],
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": ["platforms", "leads"],
+                        "type": "object"
+                      },
+                      {
+                        "properties": {
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "$ref": "#/components/schemas/_36_Enums.CampaignStatus"
+                          },
+                          "goal": {
+                            "type": "string"
+                          },
+                          "icp": {
+                            "type": "string"
+                          },
+                          "niche": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "updatedAt",
+                          "createdAt",
+                          "status",
+                          "goal",
+                          "icp",
+                          "niche",
+                          "id",
+                          "name"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": []
+      }
+    },
+    "/api/campaigns/{id}": {
+      "get": {
+        "operationId": "GetCampaignById",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "allOf": [
+                        {
+                          "properties": {
+                            "platforms": {
+                              "items": {
+                                "properties": {
+                                  "isEnabled": {
+                                    "type": "boolean"
+                                  },
+                                  "priority": {
+                                    "type": "number",
+                                    "format": "double"
+                                  },
+                                  "searchFilters": {
+                                    "type": "string"
+                                  },
+                                  "searchQuery": {
+                                    "type": "string"
+                                  },
+                                  "platform": {
+                                    "$ref": "#/components/schemas/_36_Enums.Platform"
+                                  },
+                                  "campaignId": {
+                                    "type": "string"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "isEnabled",
+                                  "priority",
+                                  "searchFilters",
+                                  "searchQuery",
+                                  "platform",
+                                  "campaignId",
+                                  "createdAt",
+                                  "id"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "required": ["platforms"],
+                          "type": "object"
+                        },
+                        {
+                          "properties": {
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "status": {
+                              "$ref": "#/components/schemas/_36_Enums.CampaignStatus"
+                            },
+                            "goal": {
+                              "type": "string"
+                            },
+                            "icp": {
+                              "type": "string"
+                            },
+                            "niche": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "updatedAt",
+                            "createdAt",
+                            "status",
+                            "goal",
+                            "icp",
+                            "niche",
+                            "id",
+                            "name"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["message"],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "UpdateCampaign",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/_36_Enums.CampaignStatus"
+                    },
+                    "goal": {
+                      "type": "string"
+                    },
+                    "icp": {
+                      "type": "string"
+                    },
+                    "niche": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "updatedAt",
+                    "createdAt",
+                    "status",
+                    "goal",
+                    "icp",
+                    "niche",
+                    "id",
+                    "name"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCampaignReq"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{id}/archive": {
+      "patch": {
+        "operationId": "ArchiveCampaign",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "$ref": "#/components/schemas/_36_Enums.CampaignStatus"
+                    },
+                    "goal": {
+                      "type": "string"
+                    },
+                    "icp": {
+                      "type": "string"
+                    },
+                    "niche": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "updatedAt",
+                    "createdAt",
+                    "status",
+                    "goal",
+                    "icp",
+                    "niche",
+                    "id",
+                    "name"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/campaigns/{id}/platforms": {
+      "post": {
+        "operationId": "AddPlatformToCampaign",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "isEnabled": {
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "type": "number",
+                      "format": "double"
+                    },
+                    "searchFilters": {
+                      "type": "string"
+                    },
+                    "searchQuery": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "$ref": "#/components/schemas/_36_Enums.Platform"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "isEnabled",
+                    "priority",
+                    "searchFilters",
+                    "searchQuery",
+                    "platform",
+                    "campaignId",
+                    "createdAt",
+                    "id"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignPlatformPayload"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/platforms/{platformId}": {
+      "patch": {
+        "operationId": "UpdatePlatform",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "isEnabled": {
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "type": "number",
+                      "format": "double"
+                    },
+                    "searchFilters": {
+                      "type": "string"
+                    },
+                    "searchQuery": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "$ref": "#/components/schemas/_36_Enums.Platform"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "isEnabled",
+                    "priority",
+                    "searchFilters",
+                    "searchQuery",
+                    "platform",
+                    "campaignId",
+                    "createdAt",
+                    "id"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platformId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformReq"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "RemovePlatform",
+        "responses": {
+          "200": {
+            "description": "Ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "isEnabled": {
+                      "type": "boolean"
+                    },
+                    "priority": {
+                      "type": "number",
+                      "format": "double"
+                    },
+                    "searchFilters": {
+                      "type": "string"
+                    },
+                    "searchQuery": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "$ref": "#/components/schemas/_36_Enums.Platform"
+                    },
+                    "campaignId": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "isEnabled",
+                    "priority",
+                    "searchFilters",
+                    "searchQuery",
+                    "platform",
+                    "campaignId",
+                    "createdAt",
+                    "id"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Campaigns"],
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "platformId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     }
   },
